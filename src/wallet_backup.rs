@@ -64,12 +64,33 @@ pub fn backup_exists(udid: &str, card_hash: &str) -> bool {
         .any(|asset| dir.join(asset).is_file())
 }
 
+fn card_hash_candidates(card_hash: &str) -> Vec<String> {
+    let trimmed = card_hash.trim_end_matches('=');
+    let mut candidates = vec![card_hash.to_string(), trimmed.to_string()];
+    if !trimmed.is_empty() {
+        candidates.push(format!("{trimmed}="));
+        candidates.push(format!("{trimmed}=="));
+    }
+    candidates.dedup();
+    candidates
+}
+
+fn find_device_card_hash(afc: &AfcClient, card_hash: &str) -> Result<Option<String>> {
+    for candidate in card_hash_candidates(card_hash) {
+        let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{candidate}.pkpass");
+        if afc.try_exists(&pkpass_dir)? {
+            return Ok(Some(candidate));
+        }
+    }
+    Ok(None)
+}
+
 pub fn capture_original_card<L>(
     udid: &str,
     connection_mode: ConnectionMode,
     card_hash: &str,
     mut log: L,
-) -> Result<()>
+) -> Result<Option<String>>
 where
     L: FnMut(&str),
 {
@@ -88,7 +109,27 @@ where
     .context("Failed to open device session for original card backup")?;
     let afc = AfcClient::new(&mut session)
         .context("Failed to open AFC for original card backup")?;
-    let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", card_hash);
+    let resolved_hash = match find_device_card_hash(&afc, card_hash)? {
+        Some(hash) => hash,
+        None if backup_exists(udid, card_hash) => {
+            log("Original backup exists, but the current Wallet card directory is not visible.");
+            return Ok(Some(card_hash.to_string()));
+        }
+        None => {
+            log(&format!(
+                "Wallet card directory not found for hash {} (also tried padded/unpadded variants); continuing without an original backup.",
+                card_hash
+            ));
+            return Ok(None);
+        }
+    };
+    if resolved_hash != card_hash {
+        log(&format!(
+            "Using device Wallet card hash variant {} for the card path.",
+            resolved_hash
+        ));
+    }
+    let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", resolved_hash);
     let mut available_assets = 0;
 
     for asset in CARD_ARTWORK_ASSETS {
@@ -115,13 +156,10 @@ where
     }
 
     if available_assets == 0 {
-        bail!(
-            "No original Wallet card artwork was found for card hash {}",
-            card_hash
-        );
+        log("Original Wallet card directory exists, but no backup artwork assets are available; continuing without a restore backup.");
     }
 
-    Ok(())
+    Ok(Some(resolved_hash))
 }
 
 pub fn load_original_assets(

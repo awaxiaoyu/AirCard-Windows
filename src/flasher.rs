@@ -297,7 +297,6 @@ where
         crate::scanner::is_valid_card_hash(card_hash),
         "Invalid Wallet card path identifier"
     );
-    let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", card_hash);
 
     log(&format!("Target Card Hash: {}", card_hash));
     log(&format!(
@@ -305,8 +304,10 @@ where
         skin_png.len(),
         skin_pdf.len()
     ));
-    capture_original_card(udid, connection_mode, card_hash, &mut log)
-        .context("Failed to preserve the original Wallet card face")?;
+    let resolved_hash = capture_original_card(udid, connection_mode, card_hash, &mut log)
+        .context("Failed to inspect the original Wallet card face")?
+        .unwrap_or_else(|| card_hash.to_string());
+    let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", resolved_hash);
 
     let total_steps = 3;
     progress(
