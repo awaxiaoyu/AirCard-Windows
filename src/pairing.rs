@@ -328,7 +328,9 @@ fn replace_file(from: &Path, to: &Path) -> Result<()> {
     }
     let from: Vec<u16> = from.as_os_str().encode_wide().chain(Some(0)).collect();
     let to: Vec<u16> = to.as_os_str().encode_wide().chain(Some(0)).collect();
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 1 | 8) } == 0 {
+    // Allow Windows to copy-and-delete when LOCALAPPDATA resolves through
+    // a redirected profile or another filesystem boundary.
+    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 1 | 2 | 8) } == 0 {
         return Err(std::io::Error::last_os_error().into());
     }
     Ok(())
