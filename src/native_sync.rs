@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 
-use crate::apple::{ATHostConnectionRef, get_apple_libraries};
+use crate::apple::{ATHostConnectionRef, CFDictionaryRef, get_apple_libraries};
 use crate::device::{DeviceTransport, ensure_transport_available};
 
 #[link(name = "bcrypt")]
@@ -48,6 +48,23 @@ fn generate_uuid_v4() -> String {
         bytes[14],
         bytes[15]
     )
+}
+
+fn describe_message(libs: &crate::apple::AppleLibraries, msg: CFDictionaryRef) -> String {
+    let rendered = libs
+        .cf_plist_to_bytes(msg)
+        .and_then(|bytes| {
+            plist::Value::from_reader(std::io::Cursor::new(bytes))
+                .context("failed to decode AirTraffic message plist")
+        })
+        .map(|value| format!("{value:?}"))
+        .unwrap_or_else(|error| format!("<unavailable: {error:#}>"));
+    const MAX_LEN: usize = 2048;
+    if rendered.len() > MAX_LEN {
+        format!("{}...", &rendered[..MAX_LEN])
+    } else {
+        rendered
+    }
 }
 
 pub fn run<L>(
@@ -96,6 +113,10 @@ where
                 sync_allowed = true;
                 break;
             } else if name == "SyncFailed" || name == "SyncFinished" || name == "Error" {
+                log(&format!(
+                    "AirTraffic {name} details: {}",
+                    describe_message(&libs, msg)
+                ));
                 bail!("AirTraffic ended before SyncAllowed: {name}");
             } else {
                 log(&format!("AirTraffic message: {}", name));
@@ -120,7 +141,7 @@ where
         );
         host_info_dict.insert(
             "MacOSVersion".to_string(),
-            plist::Value::String("Windows NT 10.0".to_string()),
+            plist::Value::String("15.6.1".to_string()),
         );
         host_info_dict.insert(
             "SyncHostName".to_string(),
@@ -147,9 +168,12 @@ where
         )?;
         let cf_host_info = libs.create_cf_plist_from_bytes(&host_info_bytes)?;
 
-        unsafe {
-            (libs.at_host_connection_send_host_info)(conn, cf_host_info.raw);
-        }
+        let host_info_status = unsafe {
+            (libs.at_host_connection_send_host_info)(conn, cf_host_info.raw)
+        };
+        log(&format!(
+            "HostInfo sent (status={host_info_status}, MacOSVersion=15.6.1)"
+        ));
         sleep(Duration::from_millis(200));
 
         // 3. Send SyncRequest
@@ -167,14 +191,15 @@ where
         )?;
         let cf_anchors = libs.create_cf_plist_from_bytes(&anchors_bytes)?;
 
-        unsafe {
+        let sync_request_status = unsafe {
             (libs.at_host_connection_send_sync_request)(
                 conn,
                 cf_dataclasses.raw,
                 cf_anchors.raw,
                 cf_host_info.raw,
-            );
-        }
+            )
+        };
+        log(&format!("SyncRequest sent (status={sync_request_status})"));
 
         log("Waiting for ReadyForSync from iPhone...");
         // 4. Wait for ReadyForSync
@@ -187,14 +212,20 @@ where
             }
             let name_ref = unsafe { (libs.at_cf_message_get_name)(msg) };
             let name = libs.to_rust_string(name_ref);
-            unsafe { (libs.cf_release)(msg) };
             if name == "SyncFailed" || name == "SyncFinished" || name == "Error" {
+                log(&format!(
+                    "AirTraffic {name} details: {}",
+                    describe_message(&libs, msg)
+                ));
+                unsafe { (libs.cf_release)(msg) };
                 bail!("Apple native AirTraffic rejected the request before ReadyForSync: {name}");
             }
             if name == "ReadyForSync" {
                 ready_for_sync = true;
+                unsafe { (libs.cf_release)(msg) };
                 break;
             }
+            unsafe { (libs.cf_release)(msg) };
         }
         if !ready_for_sync {
             bail!("AirTraffic: ReadyForSync message not received from device");
@@ -210,13 +241,16 @@ where
         )?;
         let cf_sync_types = libs.create_cf_plist_from_bytes(&sync_types_bytes)?;
 
-        unsafe {
+        let metadata_status = unsafe {
             (libs.at_host_connection_send_metadata_sync_finished)(
                 conn,
                 cf_sync_types.raw,
                 cf_anchors.raw,
-            );
-        }
+            )
+        };
+        log(&format!(
+            "MetadataSyncFinished sent (status={metadata_status})"
+        ));
 
         // 6. Read AssetManifest
         let cf_key_manifest = libs.create_cf_string("AssetManifest")?;
@@ -291,14 +325,17 @@ where
             let cf_ident = libs.create_cf_string(ident)?;
             let cf_dest = libs.create_cf_string(dest)?;
 
-            unsafe {
+            let asset_status = unsafe {
                 (libs.at_host_connection_send_asset_completed)(
                     conn,
                     cf_ident.raw,
                     cf_dataclass.raw,
                     cf_dest.raw,
-                );
-            }
+                )
+            };
+            log(&format!(
+                "AssetCompleted sent for {ident} (status={asset_status})"
+            ));
 
             if idx + 1 < assets.len() {
                 if idx == 0 {
