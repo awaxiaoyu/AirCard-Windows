@@ -168,12 +168,10 @@ where
         )?;
         let cf_host_info = libs.create_cf_plist_from_bytes(&host_info_bytes)?;
 
-        let host_info_status = unsafe {
-            (libs.at_host_connection_send_host_info)(conn, cf_host_info.raw)
-        };
-        log(&format!(
-            "HostInfo sent (status={host_info_status}, MacOSVersion=15.6.1)"
-        ));
+        unsafe {
+            (libs.at_host_connection_send_host_info)(conn, cf_host_info.raw);
+        }
+        log("HostInfo sent (MacOSVersion=15.6.1)");
         sleep(Duration::from_millis(200));
 
         // 3. Send SyncRequest
@@ -191,15 +189,15 @@ where
         )?;
         let cf_anchors = libs.create_cf_plist_from_bytes(&anchors_bytes)?;
 
-        let sync_request_status = unsafe {
+        unsafe {
             (libs.at_host_connection_send_sync_request)(
                 conn,
                 cf_dataclasses.raw,
                 cf_anchors.raw,
                 cf_host_info.raw,
-            )
-        };
-        log(&format!("SyncRequest sent (status={sync_request_status})"));
+            );
+        }
+        log("SyncRequest sent");
 
         log("Waiting for ReadyForSync from iPhone...");
         // 4. Wait for ReadyForSync
@@ -241,16 +239,14 @@ where
         )?;
         let cf_sync_types = libs.create_cf_plist_from_bytes(&sync_types_bytes)?;
 
-        let metadata_status = unsafe {
+        unsafe {
             (libs.at_host_connection_send_metadata_sync_finished)(
                 conn,
                 cf_sync_types.raw,
                 cf_anchors.raw,
-            )
-        };
-        log(&format!(
-            "MetadataSyncFinished sent (status={metadata_status})"
-        ));
+            );
+        }
+        log("MetadataSyncFinished sent");
 
         // 6. Read AssetManifest
         let cf_key_manifest = libs.create_cf_string("AssetManifest")?;
@@ -325,17 +321,15 @@ where
             let cf_ident = libs.create_cf_string(ident)?;
             let cf_dest = libs.create_cf_string(dest)?;
 
-            let asset_status = unsafe {
+            unsafe {
                 (libs.at_host_connection_send_asset_completed)(
                     conn,
                     cf_ident.raw,
                     cf_dataclass.raw,
                     cf_dest.raw,
-                )
-            };
-            log(&format!(
-                "AssetCompleted sent for {ident} (status={asset_status})"
-            ));
+                );
+            }
+            log(&format!("AssetCompleted sent for {ident}"));
 
             if idx + 1 < assets.len() {
                 if idx == 0 {
