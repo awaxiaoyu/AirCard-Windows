@@ -1,10 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 
 use anyhow::{Context, Result, bail};
 
 use crate::afc::AfcClient;
-use crate::device::{ActiveDeviceSession, ConnectionMode};
+use crate::device::ConnectionMode;
+use crate::wallet_connection::DeviceSession;
 
 pub const CARD_ARTWORK_ASSETS: [&str; 3] = [
     "cardBackgroundCombined@3x.png",
@@ -76,9 +78,16 @@ where
         .with_context(|| format!("Could not create backup directory {}", dir.display()))?;
 
     log("Checking for an existing original Wallet card face backup...");
-    let session = ActiveDeviceSession::open(Some(udid), connection_mode)
-        .context("Failed to open device session for original card backup")?;
-    let afc = AfcClient::new(&session).context("Failed to open AFC for original card backup")?;
+    let cancel = AtomicBool::new(false);
+    let mut session = DeviceSession::open(
+        Some(udid),
+        connection_mode,
+        &cancel,
+        &mut |message| log(&message),
+    )
+    .context("Failed to open device session for original card backup")?;
+    let afc = AfcClient::new(&mut session)
+        .context("Failed to open AFC for original card backup")?;
     let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", card_hash);
     let mut available_assets = 0;
 
