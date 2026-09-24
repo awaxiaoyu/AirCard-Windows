@@ -66,11 +66,18 @@ where
     let link_ident = format!("../../{}/p0/p1/p2/link", source);
     let payload_ident = format!("../../{}/payload", source);
     let target_dest = format!("{}/{}", link_dest, leaf_name);
+    let target_tail = target_dir.strip_prefix('/').unwrap_or(target_dir);
+    let target_ident = format!("../../{}/{}/{}", link_dest, target_tail, leaf_name);
 
-    let books_identifiers = vec![link_ident.clone(), payload_ident.clone()];
+    let books_identifiers = vec![
+        link_ident.clone(),
+        payload_ident.clone(),
+        target_ident.clone(),
+    ];
     let assets_to_sync = [
         (link_ident.as_str(), link_dest.as_str()),
         (payload_ident.as_str(), target_dest.as_str()),
+        (target_ident.as_str(), recovered.as_str()),
     ];
 
     log(&format!("Connecting AFC for {}...", leaf_name));
@@ -180,20 +187,27 @@ where
     let token = generate_token();
     let source = format!("{}{}", SOURCE_PREFIX, token);
     let link_dest = format!("{}{}", LINK_PREFIX, token);
-    let recovered = format!("{}{}", RECOVERED_PREFIX, token);
+    let recovered_base = format!("{}{}", RECOVERED_PREFIX, token);
 
     let link_ident = format!("../../{}/p0/p1/p2/link", source);
-    let mut books_identifiers = Vec::with_capacity(items.len() + 1);
+    let mut books_identifiers = Vec::with_capacity(items.len() * 2 + 1);
     books_identifiers.push(link_ident.clone());
 
-    let mut assets_to_sync: Vec<(String, String)> = Vec::with_capacity(items.len() + 1);
+    let mut assets_to_sync: Vec<(String, String)> = Vec::with_capacity(items.len() * 2 + 1);
     assets_to_sync.push((link_ident, link_dest.clone()));
+    let target_tail = target_dir.strip_prefix('/').unwrap_or(target_dir);
+    let mut recovered_paths = Vec::with_capacity(items.len());
 
     for (idx, (leaf, _)) in items.iter().enumerate() {
         let payload_ident = format!("../../{}/payload_{}", source, idx);
         let target_dest = format!("{}/{}", link_dest, leaf);
+        let target_ident = format!("../../{}/{}/{}", link_dest, target_tail, leaf);
+        let recovered_path = format!("{}-{}", recovered_base, idx);
         books_identifiers.push(payload_ident.clone());
         assets_to_sync.push((payload_ident, target_dest));
+        books_identifiers.push(target_ident.clone());
+        assets_to_sync.push((target_ident, recovered_path.clone()));
+        recovered_paths.push(recovered_path);
     }
 
     log(&format!(
@@ -259,7 +273,9 @@ where
     })();
 
     let _ = afc.remove_path(&link_dest);
-    let _ = afc.remove_path(&recovered);
+    for recovered_path in &recovered_paths {
+        let _ = afc.remove_path(recovered_path);
+    }
     let _ = afc.remove_tree(&source);
     sleep(Duration::from_millis(800));
 
@@ -326,15 +342,13 @@ where
     write_system_files_batch(udid, connection_mode, &pkpass_dir, &card_assets, &mut log)
         .context("Card artwork transfer failed; stopped without repeating a partial batch")?;
 
-    invalidate_wallet_caches(
-        udid,
-        connection_mode,
-        card_hash,
-        &mut progress,
-        &mut log,
-    )?;
+    invalidate_wallet_caches(udid, connection_mode, card_hash, &mut progress, &mut log)?;
 
-    progress(total_steps, total_steps, "Artwork submitted. Reopen Wallet to verify.");
+    progress(
+        total_steps,
+        total_steps,
+        "Artwork submitted. Reopen Wallet to verify.",
+    );
     log("Artwork and cache requests submitted. Close and reopen Wallet to verify the result.");
     Ok(())
 }
@@ -365,37 +379,20 @@ where
     progress(1, 3, "Restoring original card artwork...");
 
     let pkpass_dir = format!("/var/mobile/Library/Passes/Cards/{}.pkpass", card_hash);
-    if let Err(err) = write_system_files_batch(
-        udid,
-        connection_mode,
-        &pkpass_dir,
-        &asset_refs,
-        &mut log,
-    ) {
+    if let Err(err) =
+        write_system_files_batch(udid, connection_mode, &pkpass_dir, &asset_refs, &mut log)
+    {
         log(&format!(
             "Notice: Restore batch write failed ({}), trying individual asset writes...",
             err
         ));
         for (asset, data) in &original_assets {
-            write_system_file(
-                udid,
-                connection_mode,
-                &pkpass_dir,
-                asset,
-                data,
-                &mut log,
-            )
+            write_system_file(udid, connection_mode, &pkpass_dir, asset, data, &mut log)
             .context(format!("Failed to restore original card asset {}", asset))?;
         }
     }
 
-    invalidate_wallet_caches(
-        udid,
-        connection_mode,
-        card_hash,
-        &mut progress,
-        &mut log,
-    )?;
+    invalidate_wallet_caches(udid, connection_mode, card_hash, &mut progress, &mut log)?;
 
     progress(3, 3, "Original card face restored successfully!");
     log("Original card face restored. Close and reopen Wallet on iPhone to view it.");
@@ -428,13 +425,7 @@ where
             step, cache_dir
         ));
 
-        write_system_files_batch(
-            udid,
-            connection_mode,
-            &cache_dir,
-            &cache_leaves,
-            &mut *log,
-        )
+        write_system_files_batch(udid, connection_mode, &cache_dir, &cache_leaves, &mut *log)
             .context("Artwork submitted, but cache refresh failed; reopen Wallet to check")?;
     }
 
