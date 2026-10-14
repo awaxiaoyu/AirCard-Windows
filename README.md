@@ -26,8 +26,9 @@
 - ⚡ **100% Native & Lightweight:** Single standalone `aircard.exe` (~7.5 MB). No Python, no Flet, no webview, no bloated runtimes.
 - 🪟 **Material Design 3 Interface:** Clean, modern dark theme built with `egui` and `eframe`.
 - 📱 **Zero-Hassle Card Detection:** Tap any card in your iPhone's Wallet app while connected to detect its hash in real-time via `syslog_relay`.
+- 🩺 **Environment Check:** Diagnose Apple components, service status, Lockdown access, selected transport, and native iPhone pairing with guided setup steps.
 - 📶 **USB & WiFi Transport:** Scan card events and apply Wallet or passcode assets through USB or a paired local WiFi connection.
-- 🌐 **English / Simplified Chinese UI:** Switch the interface language from the top bar; the selection is saved locally for future launches.
+- 🌐 **English / Simplified Chinese UI:** Switch the interface language from the status bar; the selection is saved locally for future launches.
 - 🔄 **Safe & Reversible:** Complete Books state snapshot and automatic restore engine — preserves original device state and backs up the original Wallet card face before replacing it.
 - 🚀 **Zero Jailbreak:** Utilizes Apple's built-in AirTraffic sync conduit without modifying system partitions or disabling security.
 
@@ -41,16 +42,17 @@
 
 ---
 
-## ⚠️ Troubleshooting & Driver Repair (If Nothing Works)
+## Environment setup & troubleshooting
 
-> [!TIP]
-> **iPhone not detected, AirTraffic sync hangs, or operation fails?**  
-> Corrupted or conflicting Apple USB drivers on Windows are the #1 root cause.
-> 1. Download and install **[3uTools](https://www.3u.com/)**.
-> 2. **Disconnect your iPhone** from your PC.
-> 3. In 3uTools, go to **Toolbox ➔ Repair Driver**.
-> 4. Click **Repair Now** and wait for the Apple driver reinstallation to finish.
-> 5. Reconnect your unlocked iPhone, tap **Trust**, and launch **AirCard**.
+Open **Environment** to run the checks. Missing Apple components open this page automatically on startup. Checks run in a separate process with a 20-second limit, so an unresponsive Apple API does not freeze the UI. Device operations are paused while the check is running.
+
+The report verifies DLL loading and exports, Windows service status, the usbmux device channel, **ReadBUID through the Apple service**, the selected USB/WiFi connection, and native pairing/session authentication with a `com.apple.atc` service probe. BUID access can fail when the service account cannot access `%ProgramData%\Apple\Lockdown`, causing `0xE8000003` or an AirTraffic timeout even when the phone is listed. A passed service probe confirms prerequisites; it does not prove a completed artwork transfer.
+
+Use the page's **Apple setup guide**, **Open Services**, folder shortcuts, and copyable service restart command to configure the PC. Connect the unlocked iPhone by USB and complete trust in iTunes, then close iTunes before applying artwork. **Copy report** includes check results and next steps without pairing certificates or private keys. Detection does not re-pair the phone, change permissions, or write artwork. After changing the selected device or connection mode, check again.
+
+The page shows an animated progress ring, compact status summaries, and the next action to take. **Technical details** retains the original errors and all setup advice; skipped checks are marked **Not checked**.
+
+**One-click setup** chooses a fix from the check results. Service repair starts or restarts Apple Mobile Device Service, enables automatic startup, and checks again. Component repair uses the installed Apple MSI packages; if components or repair media are missing, it downloads the official 64-bit iTunes installer and verifies its Apple signature before opening it. Windows requests administrator approval for these changes. After component repair, restart AirCard to reload its DLLs; a required Windows restart is shown explicitly. Connection setup opens iTunes and guides the user through USB trust on the phone. Repair results are included in the copied report. No pairing records are deleted and directory permissions are not weakened.
 
 ---
 
