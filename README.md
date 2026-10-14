@@ -21,47 +21,69 @@
 
 
 ## Features
-- 🎨 **Custom Card Skins:** Assign custom artwork, textures, or bank logos to Apple Pay and Apple Cash cards.
+
+- 🎨 **Custom Card Skins:** Import PNG, JPG, or WebP artwork, drag the preview to adjust the crop, and apply it to Apple Pay or Apple Cash cards.
 - 🔢 **Lock Screen Passcode Themes (.passthm):** Apply custom keypad button artwork from popular Cowabunga & Nugget `.passthm` themes directly to iOS lockscreen.
-- ⚡ **100% Native & Lightweight:** Single standalone `aircard.exe` (~7.5 MB). No Python, no Flet, no webview, no bloated runtimes.
-- 🪟 **Material Design 3 Interface:** Clean, modern dark theme built with `egui` and `eframe`.
-- 📱 **Zero-Hassle Card Detection:** Tap any card in your iPhone's Wallet app while connected to detect its hash in real-time via `syslog_relay`.
-- 🩺 **Environment Check:** Diagnose Apple components, service status, Lockdown access, selected transport, and native iPhone pairing with guided setup steps.
+- 📱 **Card Detection:** Scan while tapping a card in Wallet to capture and save its hash automatically.
+- 🩺 **Environment Check:** Check Apple components, background service, connection, and iPhone pairing. See what needs attention and the next step to take.
+- 🛠️ **One-click Setup:** Repair the Apple service or components, verify and open Apple's official installer when needed, and guide USB trust setup from the app.
 - 📶 **USB & WiFi Transport:** Scan card events and apply Wallet or passcode assets through USB or a paired local WiFi connection.
 - 🌐 **English / Simplified Chinese UI:** Switch the interface language from the status bar; the selection is saved locally for future launches.
-- 🔄 **Safe & Reversible:** Complete Books state snapshot and automatic restore engine — preserves original device state and backs up the original Wallet card face before replacing it.
+- 🔄 **Original Card Restore:** Save available original card artwork locally before replacement. Use **Restore Original** when a backup exists.
+- ⚡ **Native Windows App:** A standalone Rust executable with no Python or webview runtime.
+- 🪟 **Material Design 3 Interface:** Dark theme with animated check progress, concise status summaries, and expandable error details.
 - 🚀 **Zero Jailbreak:** Utilizes Apple's built-in AirTraffic sync conduit without modifying system partitions or disabling security.
 
 ---
 
 ## Requirements
+
 - **Windows 10 / 11 (64-bit)**
-- **Apple Mobile Device Support / 64-bit iTunes** (required for Apple device communication).
+- **Apple Mobile Device Support / 64-bit desktop iTunes** for device communication; use **Environment → One-click setup** to install or repair it.
 - A Lightning or USB-C cable for the initial trust/pairing setup.
 - For WiFi mode, enable WiFi sync and keep the PC and iPhone on the same local network.
+- Internet access when setup needs to download the Apple installer.
 
 ---
 
 ## Environment setup & troubleshooting
 
-Open **Environment** to run the checks. Missing Apple components open this page automatically on startup. Checks run in a separate process with a 20-second limit, so an unresponsive Apple API does not freeze the UI. Device operations are paused while the check is running.
+Open **Environment** to check your PC and iPhone connection. AirCard opens this page automatically when Apple components cannot load.
 
-The report verifies DLL loading and exports, Windows service status, the usbmux device channel, **ReadBUID through the Apple service**, the selected USB/WiFi connection, and native pairing/session authentication with a `com.apple.atc` service probe. BUID access can fail when the service account cannot access `%ProgramData%\Apple\Lockdown`, causing `0xE8000003` or an AirTraffic timeout even when the phone is listed. A passed service probe confirms prerequisites; it does not prove a completed artwork transfer.
+1. Connect your iPhone by USB and keep it unlocked for the initial setup.
+2. Review the results and click **One-click setup** to run the recommended action below.
+3. Follow any restart prompt, then click **Check again**. Recheck after changing the selected iPhone or connection mode.
 
-Use the page's **Apple setup guide**, **Open Services**, folder shortcuts, and copyable service restart command to configure the PC. Connect the unlocked iPhone by USB and complete trust in iTunes, then close iTunes before applying artwork. **Copy report** includes check results and next steps without pairing certificates or private keys. Detection does not re-pair the phone, change permissions, or write artwork. After changing the selected device or connection mode, check again.
+| Setup action | What it does |
+| :--- | :--- |
+| **Fix service** | Starts or restarts Apple Mobile Device Service, enables automatic startup, and checks again. |
+| **Install / repair Apple support** | Repairs installed Apple components. When needed, downloads the official 64-bit iTunes installer, verifies its Apple signature, and opens it. |
+| **Set up connection** | Opens iTunes, or installs it if missing, so you can complete USB trust on the iPhone. |
 
-The page shows an animated progress ring, compact status summaries, and the next action to take. **Technical details** retains the original errors and all setup advice; skipped checks are marked **Not checked**.
+> [!IMPORTANT]
+> Approve the Windows administrator prompt when requested and complete any installer steps. **Trust this Computer** must be confirmed on the iPhone. Close iTunes before applying artwork. After component repair, restart AirCard; restart Windows if prompted.
 
-**One-click setup** chooses a fix from the check results. Service repair starts or restarts Apple Mobile Device Service, enables automatic startup, and checks again. Component repair uses the installed Apple MSI packages; if components or repair media are missing, it downloads the official 64-bit iTunes installer and verifies its Apple signature before opening it. Windows requests administrator approval for these changes. After component repair, restart AirCard to reload its DLLs; a required Windows restart is shown explicitly. Connection setup opens iTunes and guides the user through USB trust on the phone. Repair results are included in the copied report. No pairing records are deleted and directory permissions are not weakened.
+If a check still fails, expand **Technical details** for the original error and use **Copy report** to share the results and setup outcome. **Advanced help** provides the component repair button, service controls, and folder shortcuts. Skipped checks show **Not checked**. Passing these checks confirms connection prerequisites; verify the applied artwork on your iPhone afterward.
+
+<details>
+<summary>Technical checks and sync timeout diagnosis</summary>
+
+Checks cover Apple DLL loading and exports, Windows service status, usbmuxd, the service's **ReadBUID** response, selected USB/WiFi transport, and native pairing/session authentication with a `com.apple.atc` probe. A separate process limits checks to 20 seconds; device operations pause while checks or setup are running.
+
+If ReadBUID fails, check the Apple service's Log On account and access to `%ProgramData%\Apple\Lockdown`. Access problems can cause `0xE8000003` or AirTraffic timeouts even when the iPhone is listed. Setup preserves pairing records and directory permissions. Reports exclude pairing certificates and private keys.
+
+</details>
 
 ---
 
 ## Installation
 
 ### Pre-built Executable
+
 1. Download **`aircard.exe`** from [Releases](https://github.com/Lumid-Off/AirCard-Windows/releases).
-2. Connect your iPhone via USB, unlock it, and tap **"Trust this Computer"** if prompted.
-3. Run **`aircard.exe`**. After WiFi sync is enabled, later sessions can work without the cable.
+2. Run **`aircard.exe`** and open **Environment**. Use **One-click setup** if a check needs attention.
+3. Connect your iPhone via USB, unlock it, and tap **"Trust this Computer"** if prompted. Close iTunes and check again before applying artwork.
+4. To use AirCard without the cable, complete the WiFi setup below.
 
 ---
 
@@ -83,10 +105,10 @@ If both transports are available, **Auto** uses USB first and falls back to WiFi
    - Open **Apple Wallet** (or double-click the Side/Power button).
    - Tap the card you want to customize.
    - AirCard intercepts and saves the card hash automatically. Click **Stop**.
-4. Click **Choose Image...** to pick your artwork (PNG, JPG, or WebP — drag inside the preview to position the crop, then scale it to `1536 × 969`).
+4. Click **Choose Image...** to pick PNG, JPG, or WebP artwork. Drag inside the preview to position the crop; AirCard scales it to `1536 × 969` automatically.
 5. Click **Apply Card Skin**.
 6. Force-close the **Wallet** app on your iPhone from the App Switcher (swipe up from bottom, then swipe Wallet away) and reopen Wallet to see your new card!
-7. The first apply stores a local backup of the original card face. Use **Restore Original** later to write it back and invalidate Wallet's cached artwork.
+7. AirCard backs up available original artwork before replacing it. **Restore Original** is available when a local backup exists; if no original artwork is found, flashing can continue without a restore backup.
 
 ---
 
